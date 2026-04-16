@@ -9,7 +9,6 @@ sense = SenseHat()
 # Global storage for 24h data (1 reading every 2s = 43,200 points per day)
 # For efficiency, we'll just store the last 1000 points or use a timed buffer
 history = []
-warning_threshold = 35
 warning_count_24h = 0
 
 try:
@@ -42,7 +41,9 @@ def api_data():
     history.append({"time": now, "temp": t, "hum": h, "dust": d})
     
     # Check for warning trigger
-    if d > warning_threshold:
+    is_alert = (20 <= t <= 28) or (75 <= h <= 80) or (d > 9)
+
+    if is_alert:
         warning_count_24h += 1
 
     # Keep only the last 24 hours of data
