@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pi-Station Pro Dashboard</title>
+    <title>Pi-Station Pro | Biome Monitor</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -16,15 +16,15 @@
             --accent-temp: #fb7185;
             --accent-hum: #38bdf8;
             --accent-dust: #34d399;
+            --warning-gold: #fbbf24;
             --danger: #ef4444;
         }
 
         * { box-sizing: border-box; }
-
         body {
             background-color: var(--bg-color);
             color: var(--text-main);
-            font-family: 'Inter', -apple-system, sans-serif;
+            font-family: 'Inter', sans-serif;
             margin: 0;
             display: flex;
             height: 100vh;
@@ -33,103 +33,78 @@
 
         /* --- SIDEBAR --- */
         .sidebar {
-            width: 280px;
+            width: 320px;
             background: var(--sidebar-bg);
             border-right: 1px solid var(--border-color);
-            padding: 30px 20px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
-            box-shadow: 10px 0 15px rgba(0,0,0,0.2);
+            gap: 15px;
+            overflow-y: auto;
         }
 
-        .sidebar h2 {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1rem;
-            color: var(--text-dim);
-            margin-bottom: 10px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
+        /* PREDICTION SECTION (BIGGER) */
+        .prediction-panel {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            padding: 25px;
+            text-align: center;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: all 0.5s ease;
         }
 
+        .prediction-panel.active {
+            border-color: var(--warning-gold);
+            background: linear-gradient(135deg, #451a03 0%, #78350f 100%);
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.2);
+        }
+
+        .prediction-label { font-size: 0.7rem; color: var(--text-dim); letter-spacing: 1px; margin-bottom: 10px; }
+        .prediction-text { font-size: 1.4rem; font-weight: 800; line-height: 1.2; }
+
+        /* REGULAR STATS */
         .stat-card {
             background: rgba(15, 23, 42, 0.5);
-            padding: 15px;
+            padding: 12px 15px;
             border-radius: 12px;
             border-left: 4px solid var(--text-dim);
         }
-
         .stat-card.temp { border-left-color: var(--accent-temp); }
         .stat-card.hum { border-left-color: var(--accent-hum); }
         .stat-card.dust { border-left-color: var(--accent-dust); }
         .stat-card.alerts { border-left-color: var(--danger); }
-
-        .stat-label { font-size: 0.7rem; color: var(--text-dim); font-weight: 600; }
-        .stat-value { font-size: 1.4rem; font-weight: 700; margin-top: 5px; }
+        .stat-label { font-size: 0.65rem; color: var(--text-dim); font-weight: 600; }
+        .stat-value { font-size: 1.2rem; font-weight: 700; }
 
         /* --- MAIN CONTENT --- */
-        .main-content {
-            flex: 1;
-            padding: 40px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 30px;
-        }
-
+        .main-content { flex: 1; padding: 30px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
         .chart-container {
             background: var(--card-bg);
             backdrop-filter: blur(10px);
             border: 1px solid var(--border-color);
             border-radius: 20px;
-            padding: 25px;
-            transition: all 0.3s ease;
+            padding: 20px;
         }
 
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .chart-title { font-size: 1rem; font-weight: 500; color: var(--text-dim); }
-
-        /* --- WARNING STATES --- */
-        .warning-active {
-            border-color: var(--danger);
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
-            animation: pulse-border 2s infinite;
-        }
-
-        @keyframes pulse-border {
-            0% { border-color: rgba(239, 68, 68, 0.4); }
-            50% { border-color: rgba(239, 68, 68, 1); }
-            100% { border-color: rgba(239, 68, 68, 0.4); }
-        }
-
-        .status-badge {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: bold;
-            background: rgba(52, 211, 153, 0.1);
-            color: var(--accent-dust);
-        }
-
-        .status-badge.alert {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--danger);
-        }
+        .warning-active { border-color: var(--danger); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
     </style>
 </head>
 <body>
 
     <div class="sidebar">
-        <h2>24h Statistics</h2>
+        <div class="prediction-panel" id="prediction-panel">
+            <div class="prediction-label">AI BIOME FORECAST</div>
+            <div class="prediction-text" id="prediction-output">Monitoring Trends...</div>
+        </div>
+
+        <h2>24h History</h2>
         <div class="stat-card temp">
-            <div class="stat-label">MAX TEMPERATURE</div>
+            <div class="stat-label">MAX TEMP</div>
             <div class="stat-value" id="max-temp">--°C</div>
         </div>
         <div class="stat-card hum">
@@ -137,37 +112,26 @@
             <div class="stat-value" id="max-hum">--%</div>
         </div>
         <div class="stat-card dust">
-            <div class="stat-label">MAX DUST (PM2.5)</div>
+            <div class="stat-label">MAX DUST</div>
             <div class="stat-value" id="max-dust">-- µg</div>
         </div>
         <div class="stat-card alerts">
-            <div class="stat-label">WARNINGS TRIGGERED</div>
+            <div class="stat-label">TOTAL ALERTS</div>
             <div class="stat-value" id="alert-count" style="color:var(--danger)">0</div>
         </div>
     </div>
 
     <div class="main-content">
         <div class="chart-container" id="env-card">
-            <div class="chart-header">
-                <span class="chart-title">Atmospheric Conditions</span>
-                <span id="env-status" class="status-badge">NORMAL</span>
-            </div>
-            <canvas id="envChart" height="100"></canvas>
+            <canvas id="envChart" height="90"></canvas>
         </div>
-
         <div class="chart-container" id="dust-card">
-            <div class="chart-header">
-                <span class="chart-title">Air Quality Index (PM2.5)</span>
-                <span id="dust-status" class="status-badge">SYSTEM NORMAL</span>
-            </div>
-            <canvas id="dustChart" height="100"></canvas>
+            <canvas id="dustChart" height="90"></canvas>
         </div>
     </div>
 
     <script>
         Chart.defaults.color = '#94a3b8';
-        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
-
         document.addEventListener('DOMContentLoaded', function() {
             const envCtx = document.getElementById('envChart').getContext('2d');
             const dustCtx = document.getElementById('dustChart').getContext('2d');
@@ -177,84 +141,67 @@
                 data: {
                     labels: [],
                     datasets: [
-                        { label: 'Temp °C', data: [], borderColor: '#fb7185', backgroundColor: 'rgba(251, 113, 133, 0.1)', fill: true, tension: 0.4, pointRadius: 0 },
-                        { label: 'Humidity %', data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.4, pointRadius: 0 }
+                        { label: 'Temp °C', data: [], borderColor: '#fb7185', tension: 0.4, fill: true, backgroundColor: 'rgba(251, 113, 133, 0.05)' },
+                        { label: 'Humidity %', data: [], borderColor: '#38bdf8', tension: 0.4, fill: true, backgroundColor: 'rgba(56, 189, 248, 0.05)' }
                     ]
                 },
-                options: { responsive: true, plugins: { legend: { position: 'top', align: 'end' } } }
+                options: { responsive: true }
             });
 
             const dustChart = new Chart(dustCtx, {
                 type: 'line',
                 data: {
                     labels: [],
-                    datasets: [{ label: 'PM2.5 µg/m³', data: [], borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.2)', fill: true, tension: 0.4, pointRadius: 3 }]
+                    datasets: [{ label: 'PM2.5', data: [], borderColor: '#34d399', tension: 0.4, fill: true, backgroundColor: 'rgba(52, 211, 153, 0.1)' }]
                 },
-                options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+                options: { responsive: true }
             });
 
-            async function updateDashboard() {
+            async function update() {
                 try {
-                    const response = await fetch('/api/data');
-                    const data = await response.json();
+                    const res = await fetch('/api/data');
+                    const d = await res.json();
 
-                    // Sidebar update
-                    document.getElementById('max-temp').innerText = data.max_temp + '°C';
-                    document.getElementById('max-hum').innerText = data.max_hum + '%';
-                    document.getElementById('max-dust').innerText = data.max_dust + ' µg';
-                    document.getElementById('alert-count').innerText = data.alerts;
+                    // Sidebar Stats
+                    document.getElementById('max-temp').innerText = d.max_temp + '°C';
+                    document.getElementById('max-hum').innerText = d.max_hum + '%';
+                    document.getElementById('max-dust').innerText = d.max_dust + ' µg';
+                    document.getElementById('alert-count').innerText = d.alerts;
 
-                    // --- NEW MULTI-TRIGGER WARNING LOGIC ---
-                    const envCard = document.getElementById('env-card');
-                    const envStatus = document.getElementById('env-status');
-                    const dustCard = document.getElementById('dust-card');
-                    const dustStatus = document.getElementById('dust-status');
-
-                    // Temp Alert (20-28) or Humidity Alert (75-80)
-                    const isTempAlert = (data.temp >= 20 && data.temp <= 28);
-                    const isHumAlert = (data.humidity >= 75 && data.humidity <= 80);
-
-                    if (isTempAlert || isHumAlert) {
-                        envCard.classList.add('warning-active');
-                        envStatus.innerText = isTempAlert ? "TEMP WARNING" : "HUMIDITY WARNING";
-                        envStatus.classList.add('alert');
+                    // Prediction Logic
+                    const predPanel = document.getElementById('prediction-panel');
+                    const predText = document.getElementById('prediction-output');
+                    
+                    if (d.predict_mites) {
+                        predPanel.classList.add('active');
+                        predText.innerHTML = "⚠️ DUST MITES<br>PREDICTED SOON";
+                        predText.style.color = "var(--warning-gold)";
                     } else {
-                        envCard.classList.remove('warning-active');
-                        envStatus.innerText = "NORMAL";
-                        envStatus.classList.remove('alert');
+                        predPanel.classList.remove('active');
+                        predText.innerText = "ENVIRONMENT STABLE";
+                        predText.style.color = "white";
                     }
 
-                    // Dust Alert (> 9)
-                    if (data.dust > 9) {
-                        dustCard.classList.add('warning-active');
-                        dustStatus.innerText = "HIGH DUST DETECTED";
-                        dustStatus.classList.add('alert');
-                    } else {
-                        dustCard.classList.remove('warning-active');
-                        dustStatus.innerText = "SYSTEM NORMAL";
-                        dustStatus.classList.remove('alert');
-                    }
+                    // Warning Indicators
+                    document.getElementById('env-card').className = (d.temp >= 20 && d.temp <= 28) || (d.humidity >= 75 && d.humidity <= 80) ? 'chart-container warning-active' : 'chart-container';
+                    document.getElementById('dust-card').className = d.dust > 9 ? 'chart-container warning-active' : 'chart-container';
 
-                    // Chart updates
-                    const timeLabel = data.time;
-                    [envChart, dustChart].forEach(chart => {
-                        chart.data.labels.push(timeLabel);
-                        if(chart.data.labels.length > 20) chart.data.labels.shift();
+                    // Update Charts
+                    [envChart, dustChart].forEach(c => {
+                        c.data.labels.push(d.time);
+                        if(c.data.labels.length > 20) c.data.labels.shift();
+                    });
+                    envChart.data.datasets[0].data.push(d.temp);
+                    envChart.data.datasets[1].data.push(d.humidity);
+                    dustChart.data.datasets[0].data.push(d.dust);
+                    [envChart, dustChart].forEach(c => {
+                        c.data.datasets.forEach(s => { if(s.data.length > 20) s.data.shift(); });
+                        c.update('none');
                     });
 
-                    envChart.data.datasets[0].data.push(data.temp);
-                    envChart.data.datasets[1].data.push(data.humidity);
-                    dustChart.data.datasets[0].data.push(data.dust);
-
-                    [envChart, dustChart].forEach(chart => {
-                        chart.data.datasets.forEach(set => { if(set.data.length > 20) set.data.shift(); });
-                        chart.update('none');
-                    });
-
-                } catch (error) { console.error("Update failed:", error); }
+                } catch (e) { console.error(e); }
             }
-
-            setInterval(updateDashboard, 2000);
+            setInterval(update, 2000);
         });
     </script>
 </body>
