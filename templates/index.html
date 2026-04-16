@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pi Environmental Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #f4f4f9; text-align: center; }
+        .chart-container { width: 45%; display: inline-block; padding: 20px; background: white; border-radius: 10px; margin: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <h1>Raspberry Pi 4B Dashboard</h1>
+
+    <div class="chart-container">
+        <canvas id="envChart"></canvas>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="dustChart"></canvas>
+    </div>
+
+    <script>
+        // Chart 1: Temp & Humidity
+        new Chart(document.getElementById('envChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Temp (°C)', 'Humidity (%)'],
+                datasets: [{
+                    label: 'Atmospheric Data',
+                    data: [{{ temp }}, {{ humidity }}],
+                    backgroundColor: ['#ff6384', '#36a2eb']
+                }]
+            },
+            options: { scales: { y: { beginAtZero: true } } }
+        });
+
+        // Chart 2: Dust Levels (PM2.5)
+        new Chart(document.getElementById('dustChart'), {
+            type: 'bar',
+            data: {
+                labels: ['PM2.5 (µg/m³)'],
+                datasets: [{
+                    label: 'Particulate Matter',
+                    data: [{{ dust }}],
+                    backgroundColor: '#4bc0c0'
+                }]
+            },
+            options: {
+                scales: { y: { beginAtZero: true, max: 100 } }
+            }
+        });
+    </script>
+</body>
+</html>
