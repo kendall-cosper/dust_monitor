@@ -1,190 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pi-Station Dashboard</title>
+    <title>Pi-Station Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --bg-color: #0f172a;
             --card-bg: rgba(30, 41, 59, 0.7);
-            --border-color: rgba(255, 255, 255, 0.1);
-            --text-main: #f8fafc;
-            --text-dim: #94a3b8;
-            --accent-temp: #fb7185;
-            --accent-hum: #38bdf8;
             --accent-dust: #34d399;
+            --text-dim: #94a3b8;
         }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
+        body { background: var(--bg-color); color: white; font-family: sans-serif; margin: 0; display: flex; height: 100vh; }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            width: 250px;
+            background: rgba(15, 23, 42, 0.9);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            padding: 30px;
             display: flex;
             flex-direction: column;
-            align-items: center;
+            gap: 20px;
         }
+        .stat-item { background: var(--card-bg); padding: 15px; border-radius: 12px; border-left: 4px solid var(--text-dim); }
+        .stat-item h4 { margin: 0; font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; }
+        .stat-val { font-size: 1.5rem; font-weight: bold; margin-top: 5px; }
+        .alert-box { border-left-color: #fb7185; }
 
-        h1 {
-            font-weight: 300;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            color: var(--text-dim);
-            margin-bottom: 30px;
-        }
-
-        .dashboard-container {
-            width: 100%;
-            max-width: 1000px;
-            display: grid;
-            gap: 25px;
-        }
-
-        .chart-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 25px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .chart-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-dim);
-        }
-
-        .status-dot {
-            height: 8px;
-            width: 8px;
-            background-color: var(--accent-dust);
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-            box-shadow: 0 0 8px var(--accent-dust);
-        }
+        /* Main Content */
+        .main-content { flex: 1; padding: 30px; overflow-y: auto; }
+        .chart-card { background: var(--card-bg); padding: 20px; border-radius: 16px; margin-bottom: 25px; }
+        .warning { border: 1px solid #ff4444; box-shadow: 0 0 15px rgba(255, 68, 68, 0.4); }
     </style>
 </head>
 <body>
 
-    <h1>System Telemetry</h1>
+    <div class="sidebar">
+        <h2 style="font-size: 1.2rem; letter-spacing: 1px;">24H STATS</h2>
+        <div class="stat-item"><h4>Max Temp</h4><div class="stat-val" id="m-temp">--</div></div>
+        <div class="stat-item"><h4>Max Humidity</h4><div class="stat-val" id="m-hum">--</div></div>
+        <div class="stat-item"><h4>Max Dust</h4><div class="stat-val" id="m-dust">--</div></div>
+        <div class="stat-item alert-box"><h4>Alerts Tripped</h4><div class="stat-val" id="alerts" style="color:#fb7185">0</div></div>
+    </div>
 
-    <div class="dashboard-container">
-        <div class="chart-card">
-            <div class="chart-header">
-                <span class="chart-title">Atmospheric Conditions</span>
-            </div>
-            <canvas id="envChart"></canvas>
-        </div>
-
-        <div class="chart-card">
-            <div class="chart-header">
-                <span class="chart-title">Air Quality (PM2.5)</span>
-                <div><span class="status-dot"></span><small style="color:var(--text-dim)">LIVE</small></div>
-            </div>
-            <canvas id="dustChart"></canvas>
-        </div>
+    <div class="main-content">
+        <div class="chart-card"><canvas id="envChart"></canvas></div>
+        <div class="chart-card" id="dust-card"><canvas id="dustChart"></canvas></div>
     </div>
 
     <script>
-        // Set Global Chart.js Defaults
-        Chart.defaults.color = '#94a3b8';
-        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
+        // ... (Keep your Chart.js initialization from the previous response) ...
+        // Ensure you update the sidebar IDs in your updateData function:
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const envCtx = document.getElementById('envChart').getContext('2d');
-            const dustCtx = document.getElementById('dustChart').getContext('2d');
+        async function updateData() {
+            try {
+                const res = await fetch('/api/data');
+                const val = await res.json();
 
-            const envChart = new Chart(envCtx, {
-                type: 'line',
-                data: { 
-                    labels: [], 
-                    datasets: [
-                        { 
-                            label: 'Temperature °C', 
-                            data: [], 
-                            borderColor: '#fb7185', 
-                            backgroundColor: 'rgba(251, 113, 133, 0.1)',
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 0
-                        },
-                        { 
-                            label: 'Humidity %', 
-                            data: [], 
-                            borderColor: '#38bdf8', 
-                            backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                            fill: true,
-                            tension: 0.4, 
-                            pointRadius: 0
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { position: 'top', align: 'end' } },
-                    scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' } } }
+                // Update Sidebar
+                document.getElementById('m-temp').innerText = val.max_temp + "°C";
+                document.getElementById('m-hum').innerText = val.max_hum + "%";
+                document.getElementById('m-dust').innerText = val.max_dust + " µg";
+                document.getElementById('alerts').innerText = val.alerts;
+
+                // Dust Warning logic
+                const dustCard = document.getElementById('dust-card');
+                if (val.dust > 35) { dustCard.classList.add('warning'); } 
+                else { dustCard.classList.remove('warning'); }
+
+                // ... Update Charts (labels.push, datasets[0].data.push, etc) ...
+                // Use the chart update logic from the previous aesthetic version
+                
+                envChart.data.labels.push(val.time);
+                envChart.data.datasets[0].data.push(val.temp);
+                envChart.data.datasets[1].data.push(val.humidity);
+                dustChart.data.labels.push(val.time);
+                dustChart.data.datasets[0].data.push(val.dust);
+                
+                if(envChart.data.labels.length > 20) {
+                    envChart.data.labels.shift();
+                    envChart.data.datasets[0].data.shift();
+                    envChart.data.datasets[1].data.shift();
+                    dustChart.data.labels.shift();
+                    dustChart.data.datasets[0].data.shift();
                 }
-            });
+                envChart.update('none');
+                dustChart.update('none');
 
-            const dustChart = new Chart(dustCtx, {
-                type: 'line',
-                data: { 
-                    labels: [], 
-                    datasets: [{ 
-                        label: 'PM2.5 Concentration', 
-                        data: [], 
-                        borderColor: '#34d399', 
-                        backgroundColor: 'rgba(52, 211, 153, 0.2)',
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } } }
-                }
-            });
-
-            async function updateData() {
-                try {
-                    const res = await fetch('/api/data');
-                    const val = await res.json();
-
-                    [envChart, dustChart].forEach(chart => {
-                        chart.data.labels.push(val.time);
-                        if(chart.data.labels.length > 20) chart.data.labels.shift();
-                    });
-
-                    envChart.data.datasets[0].data.push(val.temp);
-                    envChart.data.datasets[1].data.push(val.humidity);
-                    dustChart.data.datasets[0].data.push(val.dust);
-
-                    [envChart, dustChart].forEach(chart => {
-                        if(chart.data.datasets[0].data.length > 20) chart.data.datasets[0].data.shift();
-                        if(chart.data.datasets[1]) {
-                             if(chart.data.datasets[1].data.length > 20) chart.data.datasets[1].data.shift();
-                        }
-                        chart.update('none');
-                    });
-                } catch (err) { console.error("Update failed", err); }
-            }
-
-            setInterval(updateData, 2000);
-        });
+            } catch (err) { console.error(err); }
+        }
+        setInterval(updateData, 2000);
     </script>
 </body>
 </html>
