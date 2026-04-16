@@ -59,8 +59,8 @@ def api_data():
 
     # 4. Prediction Logic (Heading towards the zones)
     # Temp rising but still below 20 AND Hum rising but still below 75
-    temp_rising = t > last_t and t < 20
-    hum_rising = h > last_h and h < 75
+    temp_rising = t > last_t and t < 20 or t < last_t and t > 28
+    hum_rising = h > last_h and h < 75 or h < last_h and h > 80
     predict_mites = temp_rising and hum_rising
 
     # 5. Calculate Maxes for Sidebar
