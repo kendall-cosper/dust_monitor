@@ -34,6 +34,8 @@ last_h = 0
 
 @app.route('/api/data')
 def api_data():
+    now = datetime.now() 
+    
     global last_t, last_h
     t = round(sense.get_temperature(), 1)
     h = round(sense.get_humidity(), 1)
