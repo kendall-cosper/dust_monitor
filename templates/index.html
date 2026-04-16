@@ -147,9 +147,10 @@
     </div>
 
     <div class="main-content">
-        <div class="chart-container">
+        <div class="chart-container" id="env-card">
             <div class="chart-header">
                 <span class="chart-title">Atmospheric Conditions</span>
+                <span id="env-status" class="status-badge">NORMAL</span>
             </div>
             <canvas id="envChart" height="100"></canvas>
         </div>
@@ -164,7 +165,6 @@
     </div>
 
     <script>
-        // Set Global Chart Defaults for Dark Mode
         Chart.defaults.color = '#94a3b8';
         Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.05)';
 
@@ -172,75 +172,60 @@
             const envCtx = document.getElementById('envChart').getContext('2d');
             const dustCtx = document.getElementById('dustChart').getContext('2d');
 
-            // --- ENV CHART CONFIG ---
             const envChart = new Chart(envCtx, {
                 type: 'line',
                 data: {
                     labels: [],
                     datasets: [
-                        {
-                            label: 'Temp °C',
-                            data: [],
-                            borderColor: '#fb7185',
-                            backgroundColor: 'rgba(251, 113, 133, 0.1)',
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 0
-                        },
-                        {
-                            label: 'Humidity %',
-                            data: [],
-                            borderColor: '#38bdf8',
-                            backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 0
-                        }
+                        { label: 'Temp °C', data: [], borderColor: '#fb7185', backgroundColor: 'rgba(251, 113, 133, 0.1)', fill: true, tension: 0.4, pointRadius: 0 },
+                        { label: 'Humidity %', data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.4, pointRadius: 0 }
                     ]
                 },
                 options: { responsive: true, plugins: { legend: { position: 'top', align: 'end' } } }
             });
 
-            // --- DUST CHART CONFIG ---
             const dustChart = new Chart(dustCtx, {
                 type: 'line',
                 data: {
                     labels: [],
-                    datasets: [{
-                        label: 'PM2.5 µg/m³',
-                        data: [],
-                        borderColor: '#34d399',
-                        backgroundColor: 'rgba(52, 211, 153, 0.2)',
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 3,
-                        pointBackgroundColor: '#34d399'
-                    }]
+                    datasets: [{ label: 'PM2.5 µg/m³', data: [], borderColor: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.2)', fill: true, tension: 0.4, pointRadius: 3 }]
                 },
-                options: {
-                    responsive: true,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
-                }
+                options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
             });
 
-            // --- DATA UPDATE LOGIC ---
             async function updateDashboard() {
                 try {
                     const response = await fetch('/api/data');
                     const data = await response.json();
 
-                    // Update Sidebar Stats
+                    // Sidebar update
                     document.getElementById('max-temp').innerText = data.max_temp + '°C';
                     document.getElementById('max-hum').innerText = data.max_hum + '%';
                     document.getElementById('max-dust').innerText = data.max_dust + ' µg';
                     document.getElementById('alert-count').innerText = data.alerts;
 
-                    // Update Dust Warning UI
+                    // --- NEW MULTI-TRIGGER WARNING LOGIC ---
+                    const envCard = document.getElementById('env-card');
+                    const envStatus = document.getElementById('env-status');
                     const dustCard = document.getElementById('dust-card');
                     const dustStatus = document.getElementById('dust-status');
-                    
-                    if (data.dust > 35) {
+
+                    // Temp Alert (20-28) or Humidity Alert (75-80)
+                    const isTempAlert = (data.temp >= 20 && data.temp <= 28);
+                    const isHumAlert = (data.humidity >= 75 && data.humidity <= 80);
+
+                    if (isTempAlert || isHumAlert) {
+                        envCard.classList.add('warning-active');
+                        envStatus.innerText = isTempAlert ? "TEMP WARNING" : "HUMIDITY WARNING";
+                        envStatus.classList.add('alert');
+                    } else {
+                        envCard.classList.remove('warning-active');
+                        envStatus.innerText = "NORMAL";
+                        envStatus.classList.remove('alert');
+                    }
+
+                    // Dust Alert (> 9)
+                    if (data.dust > 9) {
                         dustCard.classList.add('warning-active');
                         dustStatus.innerText = "HIGH DUST DETECTED";
                         dustStatus.classList.add('alert');
@@ -250,9 +235,8 @@
                         dustStatus.classList.remove('alert');
                     }
 
-                    // Update Charts
+                    // Chart updates
                     const timeLabel = data.time;
-                    
                     [envChart, dustChart].forEach(chart => {
                         chart.data.labels.push(timeLabel);
                         if(chart.data.labels.length > 20) chart.data.labels.shift();
@@ -263,18 +247,13 @@
                     dustChart.data.datasets[0].data.push(data.dust);
 
                     [envChart, dustChart].forEach(chart => {
-                        chart.data.datasets.forEach(set => {
-                            if(set.data.length > 20) set.data.shift();
-                        });
+                        chart.data.datasets.forEach(set => { if(set.data.length > 20) set.data.shift(); });
                         chart.update('none');
                     });
 
-                } catch (error) {
-                    console.error("Dashboard update failed:", error);
-                }
+                } catch (error) { console.error("Update failed:", error); }
             }
 
-            // Polling interval: 2 seconds
             setInterval(updateDashboard, 2000);
         });
     </script>
