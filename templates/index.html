@@ -1,75 +1,70 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Live Pi Monitor</title>
+    <title>Pi Live Chart</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        .chart-box { width: 80%; margin: 20px auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        body { font-family: sans-serif; background: #f0f2f5; text-align: center; }
-    </style>
 </head>
-<body>
-    <h1>Live Sensor Telemetry</h1>
-
-    <div class="chart-box"><canvas id="envChart"></canvas></div>
-    <div class="chart-box"><canvas id="dustChart"></canvas></div>
+<body style="background:#f0f0f0; font-family:sans-serif;">
+    <h1>Live Sensor Monitor</h1>
+    <div style="width:800px; margin:auto; background:white; padding:20px; margin-bottom:20px;">
+        <canvas id="envChart"></canvas>
+    </div>
+    <div style="width:800px; margin:auto; background:white; padding:20px;">
+        <canvas id="dustChart"></canvas>
+    </div>
 
     <script>
-        // Configuration for Line Charts
-        const commonOptions = {
-            scales: { x: { title: { display: true, text: 'Time' } } },
-            animation: false // Smoother updates
-        };
-
+    document.addEventListener('DOMContentLoaded', function() {
         const envCtx = document.getElementById('envChart').getContext('2d');
+        const dustCtx = document.getElementById('dustChart').getContext('2d');
+
         const envChart = new Chart(envCtx, {
             type: 'line',
             data: { labels: [], datasets: [
-                { label: 'Temp (°C)', data: [], borderColor: 'red', fill: false },
-                { label: 'Humidity (%)', data: [], borderColor: 'blue', fill: false }
-            ]},
-            options: commonOptions
+                { label: 'Temp (C)', data: [], borderColor: 'red', tension: 0.3 },
+                { label: 'Humidity (%)', data: [], borderColor: 'blue', tension: 0.3 }
+            ]}
         });
 
-        const dustCtx = document.getElementById('dustChart').getContext('2d');
         const dustChart = new Chart(dustCtx, {
             type: 'line',
             data: { labels: [], datasets: [
-                { label: 'PM2.5 (µg/m³)', data: [], borderColor: 'green', fill: true, backgroundColor: 'rgba(0,255,0,0.1)' }
-            ]},
-            options: commonOptions
+                { label: 'Dust (PM2.5)', data: [], borderColor: 'green', backgroundColor: 'rgba(0,255,0,0.1)', fill: true }
+            ]}
         });
 
-        // Function to fetch data from our Flask API
         async function updateData() {
             try {
-                const response = await fetch('/api/data');
-                const newData = await response.json();
+                const res = await fetch('/api/data');
+                const val = await res.json();
 
-                // Update Environment Chart
-                if (envChart.data.labels.length > 20) envChart.data.labels.shift(); 
-                envChart.data.labels.push(newData.time);
-                
-                envChart.data.datasets[0].data.push(newData.temp);
-                if (envChart.data.datasets[0].data.length > 20) envChart.data.datasets[0].data.shift();
-                
-                envChart.data.datasets[1].data.push(newData.humidity);
-                if (envChart.data.datasets[1].data.length > 20) envChart.data.datasets[1].data.shift();
+                // Add Time Label
+                envChart.data.labels.push(val.time);
+                dustChart.data.labels.push(val.time);
 
-                // Update Dust Chart
-                if (dustChart.data.labels.length > 20) dustChart.data.labels.shift();
-                dustChart.data.labels.push(newData.time);
-                
-                dustChart.data.datasets[0].data.push(newData.dust);
-                if (dustChart.data.datasets[0].data.length > 20) dustChart.data.datasets[0].data.shift();
+                // Add Values
+                envChart.data.datasets[0].data.push(val.temp);
+                envChart.data.datasets[1].data.push(val.humidity);
+                dustChart.data.datasets[0].data.push(val.dust);
 
-                envChart.update();
-                dustChart.update();
-            } catch (e) { console.error("Data fetch failed", e); }
+                // Keep only last 15 points
+                if(envChart.data.labels.length > 15) {
+                    envChart.data.labels.shift();
+                    envChart.data.datasets[0].data.shift();
+                    envChart.data.datasets[1].data.shift();
+                    dustChart.data.labels.shift();
+                    dustChart.data.datasets[0].data.shift();
+                }
+
+                envChart.update('none'); // 'none' for better performance
+                dustChart.update('none');
+            } catch (err) {
+                console.error("Fetch error:", err);
+            }
         }
 
-        // Run update every 2 seconds
         setInterval(updateData, 2000);
+    });
     </script>
 </body>
 </html>
