@@ -1,54 +1,75 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Pi Environmental Monitor</title>
+    <title>Live Pi Monitor</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f4f4f9; text-align: center; }
-        .chart-container { width: 45%; display: inline-block; padding: 20px; background: white; border-radius: 10px; margin: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .chart-box { width: 80%; margin: 20px auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        body { font-family: sans-serif; background: #f0f2f5; text-align: center; }
     </style>
 </head>
 <body>
-    <h1>Raspberry Pi 4B Dashboard</h1>
+    <h1>Live Sensor Telemetry</h1>
 
-    <div class="chart-container">
-        <canvas id="envChart"></canvas>
-    </div>
-
-    <div class="chart-container">
-        <canvas id="dustChart"></canvas>
-    </div>
+    <div class="chart-box"><canvas id="envChart"></canvas></div>
+    <div class="chart-box"><canvas id="dustChart"></canvas></div>
 
     <script>
-        // Chart 1: Temp & Humidity
-        new Chart(document.getElementById('envChart'), {
-            type: 'bar',
-            data: {
-                labels: ['Temp (°C)', 'Humidity (%)'],
-                datasets: [{
-                    label: 'Atmospheric Data',
-                    data: [{{ temp }}, {{ humidity }}],
-                    backgroundColor: ['#ff6384', '#36a2eb']
-                }]
-            },
-            options: { scales: { y: { beginAtZero: true } } }
+        // Configuration for Line Charts
+        const commonOptions = {
+            scales: { x: { title: { display: true, text: 'Time' } } },
+            animation: false // Smoother updates
+        };
+
+        const envCtx = document.getElementById('envChart').getContext('2d');
+        const envChart = new Chart(envCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [
+                { label: 'Temp (°C)', data: [], borderColor: 'red', fill: false },
+                { label: 'Humidity (%)', data: [], borderColor: 'blue', fill: false }
+            ]},
+            options: commonOptions
         });
 
-        // Chart 2: Dust Levels (PM2.5)
-        new Chart(document.getElementById('dustChart'), {
-            type: 'bar',
-            data: {
-                labels: ['PM2.5 (µg/m³)'],
-                datasets: [{
-                    label: 'Particulate Matter',
-                    data: [{{ dust }}],
-                    backgroundColor: '#4bc0c0'
-                }]
-            },
-            options: {
-                scales: { y: { beginAtZero: true, max: 100 } }
-            }
+        const dustCtx = document.getElementById('dustChart').getContext('2d');
+        const dustChart = new Chart(dustCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [
+                { label: 'PM2.5 (µg/m³)', data: [], borderColor: 'green', fill: true, backgroundColor: 'rgba(0,255,0,0.1)' }
+            ]},
+            options: commonOptions
         });
+
+        // Function to fetch data from our Flask API
+        async function updateData() {
+            try {
+                const response = await fetch('/api/data');
+                const newData = await response.json();
+
+                // Update Environment Chart
+                if (envChart.data.labels.length > 20) envChart.data.labels.shift(); 
+                envChart.data.labels.push(newData.time);
+                
+                envChart.data.datasets[0].data.push(newData.temp);
+                if (envChart.data.datasets[0].data.length > 20) envChart.data.datasets[0].data.shift();
+                
+                envChart.data.datasets[1].data.push(newData.humidity);
+                if (envChart.data.datasets[1].data.length > 20) envChart.data.datasets[1].data.shift();
+
+                // Update Dust Chart
+                if (dustChart.data.labels.length > 20) dustChart.data.labels.shift();
+                dustChart.data.labels.push(newData.time);
+                
+                dustChart.data.datasets[0].data.push(newData.dust);
+                if (dustChart.data.datasets[0].data.length > 20) dustChart.data.datasets[0].data.shift();
+
+                envChart.update();
+                dustChart.update();
+            } catch (e) { console.error("Data fetch failed", e); }
+        }
+
+        // Run update every 2 seconds
+        setInterval(updateData, 2000);
     </script>
 </body>
 </html>
