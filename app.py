@@ -29,14 +29,23 @@ def get_pms_data():
 def index():
     return render_template('index.html')
 
+last_t = 0
+last_h = 0
+
 @app.route('/api/data')
 def api_data():
-    global warning_count_24h
+    global last_t, last_h
     t = round(sense.get_temperature(), 1)
     h = round(sense.get_humidity(), 1)
-    d = get_pms_data()
-    now = datetime.now()
-
+    
+    # Trend Logic: Is temp rising towards 20? Is humidity rising towards 75?
+    temp_rising = t > last_t and t < 20 or t < last_t and t > 28
+    hum_rising = h > last_h and h < 75 or h < last_h and h > 80
+    
+    predict_mites = temp_rising and hum_rising
+    
+    last_t = t
+    last_h = h
     # Log data
     history.append({"time": now, "temp": t, "hum": h, "dust": d})
     
