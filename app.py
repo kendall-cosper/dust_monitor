@@ -8,7 +8,7 @@ app = Flask(__name__)
 sense = SenseHat()
 
 # --- MQTT SETUP ---
-MQTT_BROKER = "mqtt.eclipseprojects.io" # You can change this to your local Pi IP if using Mosquitto
+MQTT_BROKER = "128.164.137.133" # You can change this to your local Pi IP if using Mosquitto
 MQTT_TOPIC = "pi/sensors/alerts"
 mqtt_client = mqtt.Client()
 mqtt_client.connect(MQTT_BROKER, 1883, 60)
